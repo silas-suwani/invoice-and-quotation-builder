@@ -1,0 +1,18 @@
+import React from 'react';
+import { Button, Field, Icon, Modal, inputClass, selectClass, textareaClass } from './common';
+import { todayISO } from '../utils/documentTypes';
+import { formatCurrency } from '../utils/format';
+
+export default function PaymentDialog({ state, onClose, onSave }) {
+  const payment = state?.payment;
+  const invoice = state?.invoice;
+  const [form, setForm] = React.useState(null);
+  React.useEffect(() => {
+    if (!state) { setForm(null); return; }
+    setForm(payment ? { ...payment } : { id: '', invoiceId: invoice.id, date: todayISO(), amount: state.balance ?? 0, method: 'Bank Transfer', reference: '', notes: '', status: 'recorded' });
+  }, [state?.invoice?.id, payment?.id]);
+  if (!state || !form || !invoice) return null;
+  const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
+  async function submit(event) { event.preventDefault(); if (!Number.isFinite(Number(form.amount)) || Number(form.amount) <= 0) return; await onSave({ ...form, invoiceId: invoice.id, amount: Number(form.amount), status: 'recorded' }); }
+  return <Modal open={Boolean(state)} title={payment ? 'Edit recorded payment' : 'Record a payment'} subtitle={`${invoice.number || 'Invoice'} · ${invoice.customer?.name || 'Customer'}`} onClose={onClose}><form onSubmit={submit} className="space-y-4"><div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950"><p className="text-[10px] text-slate-500">Current balance</p><p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(state.balance || 0, invoice.currency || 'USD')}</p></div><div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-950"><p className="text-[10px] text-slate-500">Invoice total</p><p className="mt-1 text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(state.total || 0, invoice.currency || 'USD')}</p></div></div><Field label="Payment date *"><input required type="date" className={inputClass} value={form.date || todayISO()} onChange={(e) => set('date', e.target.value)} /></Field><Field label="Amount received *"><input required type="number" min="0.01" step="0.01" className={inputClass} value={form.amount ?? ''} onChange={(e) => set('amount', e.target.value)} /><p className="mt-1 text-[11px] text-slate-500">Enter the amount you recorded receiving. Overpayments require explicit confirmation.</p></Field><Field label="Payment method"><select className={selectClass} value={form.method || 'Bank Transfer'} onChange={(e) => set('method', e.target.value)}>{['Cash', 'Bank Transfer', 'Card', 'Mobile Money', 'Cheque', 'Other'].map((value) => <option key={value}>{value}</option>)}</select></Field><Field label="Payment reference"><input className={inputClass} value={form.reference || ''} onChange={(e) => set('reference', e.target.value)} placeholder="Transfer or transaction reference" /></Field><Field label="Notes"><textarea className={textareaClass} value={form.notes || ''} onChange={(e) => set('notes', e.target.value)} /></Field><div className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-[11px] leading-5 text-amber-800 dark:bg-amber-950 dark:text-amber-200"><Icon name="Info" size={15} className="mt-0.5 shrink-0" />This is a manual record only. The application does not connect to a bank or verify a real-world transaction.</div><div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button type="submit" icon="Save">{payment ? 'Save payment changes' : 'Record payment'}</Button></div></form></Modal>;
+}
